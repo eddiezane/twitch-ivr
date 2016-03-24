@@ -4,6 +4,7 @@ const express = require('express')
 const path = require('path')
 const bodyParser = require('body-parser')
 const twilio = require('twilio')
+const getUni = require('./lib/uni.js')
 const app = express()
 
 app.use(express.static(path.join(__dirname, '/assets')))
@@ -40,18 +41,25 @@ app.post('/ivr/menu', (req, res) => {
 })
 
 app.post('/ivr/step1', (req, res) => {
- let digit = req.body.Digits
-
- let respMap = {
-   "1": iAmSick,
-   "2": iBecomeDoctor
- }
-
+ let digit = parseInt(req.body.Digits)
  let twiml = new twilio.TwimlResponse()
 
- twiml = respMap[digit](twiml)
+ if (!digit) {
+   twiml.say("I didn't get any digits")
+   twiml.redirect('/ivr/menu')
+   return res.send(twiml.toString())
+ }
 
- res.send(twiml.toString())
+ if (digit === 1) {
+   twiml = iAmSick(twiml)
+   res.send(twiml.toString())
+ } else if (digit === 2) {
+   getUni(req.body.FromZip)
+   .then(uni => {
+     twiml.say(`I think the ${uni} is nearby. Go there and don't be lazy`)
+     res.send(twiml.toString())
+   })
+ }
 })
 
 function iAmSick (twiml) {
@@ -63,10 +71,6 @@ function iAmSick (twiml) {
     node.say('On a scale of 1 to 10, please enter how sick you are?')
   })
   return twiml
-}
-
-function iBecomeDoctor (twiml) {
-  
 }
 
 app.post('/ivr/step2', (req, res) => {
